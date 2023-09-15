@@ -233,11 +233,11 @@ static long int my_ioctl(struct file*, unsigned int cmd, unsigned long arg)
 {
 	switch(cmd){
 	case RD_SWITCHES:
-		read_pointer = bar0_mmio + 0xF0A0; //TODO: update offset
+		read_pointer = bar0_mmio + 0xC040; //TODO: update offset
 		rd_name_idx = IDX_SWITCH;
 		break;
 	case RD_PBUTTONS:
-		read_pointer = bar0_mmio + 0xC040; //TODO: update offset
+		read_pointer = bar0_mmio + 0xC080; //TODO: update offset
 		rd_name_idx = IDX_PBUTTONS;
 		break;
 	case WR_L_DISPLAY:
@@ -298,7 +298,7 @@ static int __init my_pci_probe(struct pci_dev *dev, const struct pci_device_id *
 	bar0_mmio = pci_iomap(dev, 0, bar_len);
 
 	/* initialize a default peripheral read and write pointer */
-	write_pointer = bar0_mmio + 0xC000; //TODO: update offset
+	write_pointer = bar0_mmio + 0xC140; //TODO: update offset
 	read_pointer  = bar0_mmio + 0xC040; //TODO: update offset
 
 	return 0;
