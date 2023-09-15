@@ -17,14 +17,30 @@
 
 #define maxSeq 10    	// Quantidade de níveis  
 
-int ind, sequence[maxSeq];
+int ind, sequence[maxSeq], dirty, fd;
 
 // Integração com Assembly
 extern void addScore(int*);
 
-int waitForInput(int* input){
-    // Mudar esse método pra funcionar na placa
-    scanf("%d", input);
+int hexToIndex(int* input, unsigned int value){
+	int result = -1;
+	
+	switch(value){
+		case 0x7:
+			result = 0;
+			break;
+		case 0xB:
+			result = 1;
+			break;
+		case 0xD:
+			result = 2;
+			break;
+		case 0xE:
+			result = 3;
+			break;
+	}
+	
+	*input = result;
 }
 
 unsigned int digitToHex(int digit){
@@ -52,7 +68,7 @@ unsigned int digitToHex(int digit){
 			result = 0x02;
 			break;
 		case 7:
-			result = 0x07;
+			result = 0x78;
 			break;
 		case 8:
 			result = 0x00;
@@ -77,38 +93,77 @@ unsigned int scoreToHex(int pontos){
 }
 
 int main(int argc, char** argv){
-	unsigned int data;
-	int fd, retval;
+	unsigned int data = 0x40404040, lightData = 0b00000000, btnInput = 0x00, lastBtn = 0x00;
+	int retval, dirty = 0, count = 0;
     int input, pontos = 0;
-    
+   
     if ((fd = open(argv[1], O_RDWR)) < 0) {
 		fprintf(stderr, "Error opening file %s\n", argv[1]);
 		return -EBUSY;
 	}
+	
+    ioctl(fd, WR_R_DISPLAY);
+	retval = write(fd, &data, sizeof(data));
+	
+    ioctl(fd, WR_L_DISPLAY);
+	retval = write(fd, &data, sizeof(data));
     
+    lightData = 0b00000000;
+    retval = write(fd, &lightData, sizeof(lightData));
+
     srand(time(NULL));
     ind = 0;
     for(int i = 0; i < maxSeq; i++){
         sequence[i] = rand() % 4;
         for(int j = 0; j <= i; j++){
             sleep(1);
-            printf("%d", sequence[j]); // Acender a luz
+        	ioctl(fd, WR_GREEN_LEDS);
+        	printf("%d ", sequence[j]);
+        	lightData = 0b00000000 | (0b11000000 >> (2 * sequence[j]));
+        	retval = write(fd, &lightData, sizeof(lightData));
             sleep(1);
-            // system("cls");          // Apagar a luz
+            lightData = 0b00000000;
+            retval = write(fd, &lightData, sizeof(lightData));
         }
+        printf("\n");
 
         for(int j = 0; j <= i; j++){
-            waitForInput(&input);
+			while(dirty){
+				
+				btnInput = 0x00;
+				ioctl(fd, RD_PBUTTONS);
+				read(fd, &btnInput, 1);
+				dirty = btnInput != 0xF;
+			}
+			
+        	do {
+        		btnInput = 0x00;
+				ioctl(fd, RD_PBUTTONS);
+				read(fd, &btnInput, 1);
+				if(btnInput == lastBtn){
+				 	++count;
+				}
+				else{
+					lastBtn = btnInput;
+					count = 0;
+				}
+			} while(btnInput == 0xF || count < 20);
+      
+        	hexToIndex(&input, btnInput);
             if(input != sequence[j]){
+            	printf("%X %d\n", btnInput, j);
                 printf("Voce perdeu\nPontos: %d\n", pontos);
                 return 0;
             }
+            dirty = 1;
+            lastBtn = 0x00;
+			count = 0;
         }
 
         addScore(&pontos);
 
         data = scoreToHex(pontos);
-        ioctl(fd, WR_L_DISPLAY);
+        ioctl(fd, WR_R_DISPLAY);
 		retval = write(fd, &data, sizeof(data));
     }
     // printf("Pontos: %d\n", pontos);    // Trocar essa linha
