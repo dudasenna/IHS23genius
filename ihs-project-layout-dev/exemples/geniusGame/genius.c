@@ -92,8 +92,23 @@ unsigned int scoreToHex(int pontos){
 	return result;
 }
 
+void endGame(){
+	unsigned int data;
+	int retval;
+	ioctl(fd, WR_RED_LEDS);
+	
+	for(int i = 0; i < 5; i++){
+		data = 0x0007FFFF;
+		retval = write(fd, &data, sizeof(data));
+		sleep(1);
+		data = 0x00000000;
+		retval = write(fd, &data, sizeof(data));
+		sleep(1);
+	}
+}
+
 int main(int argc, char** argv){
-	unsigned int data = 0x40404040, lightData = 0b00000000, btnInput = 0x00, lastBtn = 0x00;
+	unsigned int data = 0x40404040, lightData = 0b00000000, redLight, btnInput = 0x00, lastBtn = 0x00;
 	int retval, dirty = 0, count = 0;
     int input, pontos = 0;
    
@@ -107,8 +122,13 @@ int main(int argc, char** argv){
 	
     ioctl(fd, WR_L_DISPLAY);
 	retval = write(fd, &data, sizeof(data));
+	
+	redLight = 0x00000000;
+	ioctl(fd, WR_RED_LEDS);
+	retval = write(fd, &redLight, sizeof(redLight));
     
     lightData = 0b00000000;
+    ioctl(fd, WR_GREEN_LEDS);
     retval = write(fd, &lightData, sizeof(lightData));
 
     srand(time(NULL));
@@ -118,14 +138,14 @@ int main(int argc, char** argv){
         for(int j = 0; j <= i; j++){
             sleep(1);
         	ioctl(fd, WR_GREEN_LEDS);
-        	printf("%d ", sequence[j]);
+        	// printf("%d ", sequence[j]);
         	lightData = 0b00000000 | (0b11000000 >> (2 * sequence[j]));
         	retval = write(fd, &lightData, sizeof(lightData));
             sleep(1);
             lightData = 0b00000000;
             retval = write(fd, &lightData, sizeof(lightData));
         }
-        printf("\n");
+        // printf("\n");
 
         for(int j = 0; j <= i; j++){
 			while(dirty){
@@ -153,6 +173,7 @@ int main(int argc, char** argv){
             if(input != sequence[j]){
             	printf("%X %d\n", btnInput, j);
                 printf("Voce perdeu\nPontos: %d\n", pontos);
+            	endGame();
                 return 0;
             }
             dirty = 1;
@@ -166,5 +187,7 @@ int main(int argc, char** argv){
         ioctl(fd, WR_R_DISPLAY);
 		retval = write(fd, &data, sizeof(data));
     }
+	endGame();
+	close(fd);
     // printf("Pontos: %d\n", pontos);    // Trocar essa linha
 }
